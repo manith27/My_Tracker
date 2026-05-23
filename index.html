@@ -724,32 +724,73 @@ function rToday() {
 
 function rWeek() {
   if (!habits.length) {
-    document.getElementById('w-tbl').innerHTML = `<tr><td style="padding:36px;text-align:center;color:var(--muted);font-size:0.82rem;">Add habits to see your week.</td></tr>`;
+    document.getElementById('w-tbl').innerHTML = `<tr><td colspan="9" style="padding:36px;text-align:center;color:var(--muted);font-size:0.82rem;">Add habits to see your week.</td></tr>`;
     return;
   }
+
+  // Build Mon–Sun for this week
   const dow = today.getDay();
   const mon = new Date(today);
   mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-  const week = Array.from({length:7}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
-  const shown = habits.slice(0, 8);
+  const week = Array.from({length:7}, (_,i) => {
+    const d = new Date(mon); d.setDate(mon.getDate()+i); return d;
+  });
 
+  // Header: Habit | Mon | Tue | Wed | Thu | Fri | Sat | Sun | Week %
   let html = `<thead><tr>
-    <th style="text-align:left;">Day</th><th>Progress</th>
-    ${shown.map(h=>`<th data-tip="${h.name}">${h.emoji}</th>`).join('')}
+    <th style="text-align:left;min-width:140px;">Habit</th>
+    ${week.map((d,i) => {
+      const isT = dk(d) === todayKey;
+      return `<th style="min-width:38px;${isT?'color:var(--accent-dark);':''}">
+        <div>${DAYS7[i]}</div>
+        <div style="font-size:0.58rem;font-weight:400;color:var(--muted);margin-top:1px;">${d.toLocaleDateString('en',{month:'short',day:'numeric'})}</div>
+      </th>`;
+    }).join('')}
+    <th style="min-width:44px;">Week</th>
   </tr></thead><tbody>`;
 
-  week.forEach((d,i) => {
-    const day = dk(d), isT = day === todayKey, isFut = d > today;
-    const pct = dayPct(day);
-    html += `<tr class="${isT?'is-today':''}">
-      <td><div class="w-day-name">${DAYS7[i]}</div><div class="w-day-date">${d.toLocaleDateString('en',{month:'short',day:'numeric'})}</div></td>
-      <td><div class="w-bar-wrap"><div class="w-bar-track"><div class="w-bar-fill" style="width:${pct}%"></div></div><div class="w-pct">${pct}%</div></div></td>
-      ${shown.map(h => {
+  // One row per habit
+  habits.forEach(h => {
+    const weekDone = week.filter(d => isDone(h.id, dk(d))).length;
+    const weekPct  = Math.round(weekDone / 7 * 100);
+
+    html += `<tr>
+      <td style="text-align:left;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1rem;">${h.emoji}</span>
+          <span style="font-size:0.82rem;font-weight:500;">${h.name}</span>
+        </div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:1px;padding-left:26px;">${h.category}</div>
+      </td>
+      ${week.map(d => {
+        const day  = dk(d);
         const done = isDone(h.id, day);
-        return `<td><div class="w-check${done?' checked':''}${isFut?' future':''}" ${!isFut?`onclick="toggle(${h.id},'${day}')"`:''}>${done?CHK_W:''}</div></td>`;
+        const isFut = d > today;
+        return `<td>
+          <div class="w-check${done?' checked':''}${isFut?' future':''}"
+            ${!isFut ? `onclick="toggle(${h.id},'${day}')"` : ''}>
+            ${done ? CHK_W : ''}
+          </div>
+        </td>`;
       }).join('')}
+      <td>
+        <div style="font-size:0.72rem;font-weight:700;color:${weekPct>=70?'var(--accent-dark)':weekPct>=40?'var(--orange)':'var(--muted)'};">${weekPct}%</div>
+      </td>
     </tr>`;
   });
+
+  // Footer row: daily completion %
+  html += `<tr style="border-top:2px solid var(--border);">
+    <td style="text-align:left;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding-top:10px;">Daily %</td>
+    ${week.map(d => {
+      const pct = dayPct(dk(d));
+      return `<td style="padding-top:10px;">
+        <div style="font-size:0.7rem;font-weight:600;color:${pct===100?'var(--accent-dark)':pct>=50?'var(--text2)':'var(--muted)'};">${pct}%</div>
+      </td>`;
+    }).join('')}
+    <td></td>
+  </tr>`;
+
   document.getElementById('w-tbl').innerHTML = html + '</tbody>';
 }
 
